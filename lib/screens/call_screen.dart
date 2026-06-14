@@ -1,7 +1,9 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import '../models/user.dart';
 import '../services/auth_service.dart';
 import '../services/api_service.dart';
+import '../services/signaling_service.dart';
 import '../services/call_history_service.dart';
 import 'webrtc_call_screen.dart';
 import 'dialpad_screen.dart';
@@ -22,6 +24,9 @@ class _CallScreenState extends State<CallScreen> {
   bool _isLoading = true;
   String _searchQuery = '';
   final _searchController = TextEditingController();
+  final SignalingService _signaling = SignalingService();
+  Set<String> _onlineUserIds = {};
+  StreamSubscription? _onlineUsersSubscription;
 
   @override
   void initState() {
@@ -33,10 +38,16 @@ class _CallScreenState extends State<CallScreen> {
         _filterUsers();
       });
     });
+    // Subscribe to online users updates
+    _onlineUserIds = _signaling.onlineUserIds;
+    _onlineUsersSubscription = _signaling.onlineUsers.listen((ids) {
+      if (mounted) setState(() => _onlineUserIds = ids);
+    });
   }
 
   @override
   void dispose() {
+    _onlineUsersSubscription?.cancel();
     _searchController.dispose();
     super.dispose();
   }
@@ -411,6 +422,7 @@ class _CallScreenState extends State<CallScreen> {
   }
 
   Widget _buildContactAvatar(User user, Color primaryColor) {
+    final isOnline = _onlineUserIds.contains(user.id);
     return GestureDetector(
       onTap: () => _showCallOptions(user, primaryColor),
       onLongPress: () => _showContactDetails(user, primaryColor),
@@ -452,7 +464,7 @@ class _CallScreenState extends State<CallScreen> {
                     ),
                   ),
                 ),
-                // Online indicator
+                // Online indicator — green if online, grey if offline
                 Positioned(
                   bottom: 0,
                   right: 0,
@@ -461,7 +473,7 @@ class _CallScreenState extends State<CallScreen> {
                     height: 14,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      color: Colors.green,
+                      color: isOnline ? Colors.green : Colors.grey[400],
                       border: Border.all(color: Colors.white, width: 2),
                     ),
                   ),

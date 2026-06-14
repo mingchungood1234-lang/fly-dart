@@ -152,4 +152,58 @@ class ApiService {
       };
     }
   }
+
+  /// Register a device push token with the server
+  static Future<Map<String, dynamic>> registerDeviceToken({
+    required String authToken,
+    required String userId,
+    required String deviceToken,
+    required String platform,
+  }) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$_baseUrl/devices/register'),
+        headers: _authHeaders(authToken),
+        body: jsonEncode({
+          'userId': userId,
+          'deviceToken': deviceToken,
+          'platform': platform,
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        return {'success': true};
+      } else {
+        final data = jsonDecode(response.body);
+        return {'success': false, 'message': data['message'] ?? 'Failed'};
+      }
+    } catch (e) {
+      return {'success': false, 'message': 'Network error: ${e.toString()}'};
+    }
+  }
+
+  /// Remove a device push token from the server (on logout)
+  static Future<Map<String, dynamic>> removeDeviceToken({
+    required String authToken,
+    required String deviceToken,
+  }) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$_baseUrl/devices/remove'),
+        headers: _authHeaders(authToken),
+        body: jsonEncode({
+          'deviceToken': deviceToken,
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        return {'success': true};
+      } else {
+        final data = jsonDecode(response.body);
+        return {'success': false, 'message': data['message'] ?? 'Failed'};
+      }
+    } catch (e) {
+      return {'success': false, 'message': 'Network error: ${e.toString()}'};
+    }
+  }
 }

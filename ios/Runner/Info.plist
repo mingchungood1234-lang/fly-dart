@@ -34,6 +34,8 @@
 	<string>PhoneCall needs access to your camera for video calls.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>PhoneCall needs access to your microphone for audio calls.</string>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>PhoneCall needs local network access to connect calls.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

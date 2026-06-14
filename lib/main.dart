@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'screens/login_screen.dart';
@@ -7,7 +8,19 @@ import 'screens/home_screen.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await dotenv.load(fileName: '.env');
-  runApp(const MyApp());
+
+  // Catch all unhandled errors so the app doesn't crash silently
+  FlutterError.onError = (details) {
+    debugPrint('Flutter error: ${details.exceptionAsString()}');
+    debugPrint(details.stack.toString());
+  };
+
+  runZonedGuarded(() {
+    runApp(const MyApp());
+  }, (error, stack) {
+    debugPrint('Uncaught error: $error');
+    debugPrint(stack.toString());
+  });
 }
 
 class MyApp extends StatelessWidget {

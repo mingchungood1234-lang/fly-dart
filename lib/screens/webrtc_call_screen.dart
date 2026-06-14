@@ -40,6 +40,7 @@ class WebRTCCallScreen extends StatefulWidget {
 class _WebRTCCallScreenState extends State<WebRTCCallScreen>
     with SingleTickerProviderStateMixin {
   final WebRTCService _webrtcService = WebRTCService();
+  // Use the singleton signaling service — do NOT create a new one
   final SignalingService _signalingService = SignalingService();
 
   CallState _callState = CallState.idle;
@@ -49,6 +50,8 @@ class _WebRTCCallScreenState extends State<WebRTCCallScreen>
   String? _currentUserId;
   bool _isCleanedUp = false;
   bool _hasRecordedHistory = false;
+  bool _isInitializing = false;
+  String? _errorMessage;
   StreamSubscription? _eventSubscription;
   StreamSubscription? _connectedSubscription;
   StreamSubscription? _iceCandidateSubscription;
@@ -84,54 +87,83 @@ class _WebRTCCallScreenState extends State<WebRTCCallScreen>
   }
 
   Future<void> _initCall() async {
-    final user = await AuthService.getUser();
-    _currentUserId = user?.id ?? '';
+    if (_isInitializing) return;
+    _isInitializing = true;
 
-    // Initialize local stream
-    await _webrtcService.initLocalStream(video: widget.isVideo);
-
-    // Create peer connection
-    await _webrtcService.createPeerConnection();
-
-    // Connect to signaling
-    _signalingService.connect(_currentUserId!);
-
-    // Listen for signaling events
-    _eventSubscription = _signalingService.events.listen(_handleSignalingEvent);
-
-    // Listen for connection state changes
-    _connectedSubscription = _webrtcService.callConnected.listen((connected) {
-      if (connected && mounted) {
-        setState(() => _callState = CallState.connected);
-        _startDurationTimer();
+    try {
+      final user = await AuthService.getUser();
+      if (user == null) {
+        _showError('Not logged in. Please log in again.');
+        return;
       }
-    });
+      _currentUserId = user.id;
 
-    // Listen for ICE candidates from WebRTC and forward them via signaling
-    _iceCandidateSubscription = _webrtcService.onIceCandidate.listen((candidate) {
-      debugPrint('Forwarding ICE candidate to $_remoteUserId');
-      _signalingService.sendSignal(
-        targetId: _remoteUserId,
-        signal: {
-          'type': 'candidate',
-          'candidate': candidate.candidate,
-          'sdpMid': candidate.sdpMid,
-          'sdpMLineIndex': candidate.sdpMLineIndex,
-        },
-      );
-    });
+      // Initialize local stream (requests camera/mic permissions)
+      await _webrtcService.initLocalStream(video: widget.isVideo);
 
-    if (widget.isIncoming) {
-      setState(() => _callState = CallState.ringing);
-    } else {
-      setState(() => _callState = CallState.calling);
-      _signalingService.callUser(
-        callerId: _currentUserId!,
-        callerName: user?.name ?? 'Unknown',
-        targetId: widget.targetUserId,
-        callType: widget.isVideo ? 'video' : 'audio',
-      );
+      // Create peer connection
+      await _webrtcService.createPeerConnection();
+
+      // The signaling connection is already managed by HomeScreen (persistent).
+      // We just need to verify it's connected and ensure registration.
+      if (!_signalingService.isConnected) {
+        // If somehow disconnected, reconnect (but this shouldn't happen)
+        _signalingService.connect(_currentUserId!);
+        // Wait briefly for connection
+        await Future.delayed(const Duration(seconds: 2));
+      }
+
+      // Listen for signaling events
+      _eventSubscription = _signalingService.events.listen(_handleSignalingEvent);
+
+      // Listen for connection state changes
+      _connectedSubscription = _webrtcService.callConnected.listen((connected) {
+        if (connected && mounted) {
+          setState(() => _callState = CallState.connected);
+          _startDurationTimer();
+        }
+      });
+
+      // Listen for ICE candidates from WebRTC and forward them via signaling
+      _iceCandidateSubscription = _webrtcService.onIceCandidate.listen((candidate) {
+        debugPrint('Forwarding ICE candidate to $_remoteUserId');
+        _signalingService.sendSignal(
+          targetId: _remoteUserId,
+          signal: {
+            'type': 'candidate',
+            'candidate': candidate.candidate,
+            'sdpMid': candidate.sdpMid,
+            'sdpMLineIndex': candidate.sdpMLineIndex,
+          },
+        );
+      });
+
+      if (widget.isIncoming) {
+        setState(() => _callState = CallState.ringing);
+      } else {
+        setState(() => _callState = CallState.calling);
+        _signalingService.callUser(
+          callerId: _currentUserId!,
+          callerName: user.name,
+          targetId: widget.targetUserId,
+          callType: widget.isVideo ? 'video' : 'audio',
+        );
+      }
+    } catch (e) {
+      debugPrint('Call init error: $e');
+      _showError('Failed to start call: ${e.toString()}');
     }
+  }
+
+  void _showError(String message) {
+    if (!mounted) return;
+    setState(() {
+      _errorMessage = message;
+      _callState = CallState.ended;
+    });
+    Future.delayed(const Duration(seconds: 3), () {
+      if (mounted) Navigator.pop(context);
+    });
   }
 
   void _handleSignalingEvent(Map<String, dynamic> event) {
@@ -153,6 +185,10 @@ class _WebRTCCallScreenState extends State<WebRTCCallScreen>
         _onCallRejected();
         break;
 
+      case 'call_offline':
+        _onCallOffline(data);
+        break;
+
       case 'call_ended':
         _onCallEnded();
         break;
@@ -164,55 +200,67 @@ class _WebRTCCallScreenState extends State<WebRTCCallScreen>
   }
 
   void _handleSignal(Map<String, dynamic> data) async {
-    final signal = data['signal'];
-    final signalType = signal['type'];
+    try {
+      final signal = data['signal'];
+      final signalType = signal['type'];
 
-    debugPrint('Received signal: $signalType from ${data['from']}');
+      debugPrint('Received signal: $signalType from ${data['from']}');
 
-    if (signalType == 'offer') {
-      debugPrint('Processing SDP offer');
-      final offer = RTCSessionDescription(
-        signal['sdp'],
-        signal['type'],
-      );
-      await _webrtcService.setRemoteDescription(offer);
-      debugPrint('Creating and sending SDP answer');
-      final answer = await _webrtcService.createAnswer();
-      _signalingService.sendSignal(
-        targetId: _remoteUserId,
-        signal: {'type': 'answer', 'sdp': answer.sdp},
-      );
-      debugPrint('SDP answer sent');
-    } else if (signalType == 'answer') {
-      debugPrint('Processing SDP answer');
-      final answer = RTCSessionDescription(
-        signal['sdp'],
-        signal['type'],
-      );
-      await _webrtcService.setRemoteDescription(answer);
-      debugPrint('SDP answer applied');
-    } else if (signalType == 'candidate') {
-      final candidate = RTCIceCandidate(
-        signal['candidate'],
-        signal['sdpMid'],
-        signal['sdpMLineIndex'],
-      );
-      debugPrint('Processing ICE candidate');
-      await _webrtcService.addIceCandidate(candidate);
+      if (signalType == 'offer') {
+        debugPrint('Processing SDP offer');
+        final offer = RTCSessionDescription(
+          signal['sdp'],
+          signal['type'],
+        );
+        await _webrtcService.setRemoteDescription(offer);
+        debugPrint('Creating and sending SDP answer');
+        final answer = await _webrtcService.createAnswer();
+        _signalingService.sendSignal(
+          targetId: _remoteUserId,
+          signal: {'type': 'answer', 'sdp': answer.sdp},
+        );
+        debugPrint('SDP answer sent');
+      } else if (signalType == 'answer') {
+        debugPrint('Processing SDP answer');
+        final answer = RTCSessionDescription(
+          signal['sdp'],
+          signal['type'],
+        );
+        await _webrtcService.setRemoteDescription(answer);
+        debugPrint('SDP answer applied');
+      } else if (signalType == 'candidate') {
+        final candidate = RTCIceCandidate(
+          signal['candidate'],
+          signal['sdpMid'],
+          signal['sdpMLineIndex'],
+        );
+        debugPrint('Processing ICE candidate');
+        await _webrtcService.addIceCandidate(candidate);
+      }
+    } catch (e) {
+      debugPrint('Signal handling error: $e');
     }
   }
 
   void _onCallAccepted() async {
     setState(() => _callState = CallState.connecting);
 
-    // Create and send offer
-    debugPrint('Call accepted, creating SDP offer');
-    final offer = await _webrtcService.createOffer();
-    _signalingService.sendSignal(
-      targetId: _remoteUserId,
-      signal: {'type': 'offer', 'sdp': offer.sdp},
-    );
-    debugPrint('SDP offer sent');
+    try {
+      debugPrint('Call accepted, creating SDP offer');
+      final offer = await _webrtcService.createOffer();
+      _signalingService.sendSignal(
+        targetId: _remoteUserId,
+        signal: {'type': 'offer', 'sdp': offer.sdp},
+      );
+      debugPrint('SDP offer sent');
+    } catch (e) {
+      debugPrint('Error creating offer: $e');
+      _signalingService.endCall(
+        callerId: _currentUserId ?? '',
+        targetId: _remoteUserId,
+      );
+      _showError('Failed to establish call');
+    }
   }
 
   void _onCallRejected() {
@@ -226,6 +274,24 @@ class _WebRTCCallScreenState extends State<WebRTCCallScreen>
         const SnackBar(
           content: Text('Call declined'),
           backgroundColor: Colors.orange,
+        ),
+      );
+    }
+  }
+
+  void _onCallOffline(Map<String, dynamic>? data) {
+    if (!_hasRecordedHistory) {
+      _recordCallHistory(direction: CallDirection.outgoing, missed: true);
+    }
+    _safeCleanup();
+    if (mounted) {
+      final reason = data?['reason'] as String? ?? 'User is offline';
+      Navigator.pop(context);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(reason),
+          backgroundColor: Colors.orange,
+          duration: const Duration(seconds: 3),
         ),
       );
     }
@@ -315,7 +381,7 @@ class _WebRTCCallScreenState extends State<WebRTCCallScreen>
     _connectedSubscription?.cancel();
     _iceCandidateSubscription?.cancel();
     _webrtcService.hangup();
-    _signalingService.disconnect();
+    // Do NOT disconnect the signaling service — it's managed by HomeScreen
   }
 
   @override
@@ -366,7 +432,6 @@ class _WebRTCCallScreenState extends State<WebRTCCallScreen>
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          // Caller avatar with ring animation
           AnimatedBuilder(
             animation: _ringAnimation,
             builder: (context, child) {
@@ -408,8 +473,6 @@ class _WebRTCCallScreenState extends State<WebRTCCallScreen>
             },
           ),
           const SizedBox(height: 24),
-
-          // Caller name
           Text(
             displayName,
             style: const TextStyle(
@@ -419,17 +482,26 @@ class _WebRTCCallScreenState extends State<WebRTCCallScreen>
             ),
           ),
           const SizedBox(height: 8),
-
-          // Call status
-          Text(
-            statusText ?? '',
-            style: TextStyle(
-              color: Colors.grey[400],
-              fontSize: 16,
+          if (_errorMessage != null)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 32),
+              child: Text(
+                _errorMessage!,
+                style: const TextStyle(
+                  color: Colors.red,
+                  fontSize: 14,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            )
+          else
+            Text(
+              statusText ?? '',
+              style: TextStyle(
+                color: Colors.grey[400],
+                fontSize: 16,
+              ),
             ),
-          ),
-
-          // Audio-only call indicator
           if (!widget.isVideo && _callState == CallState.connected) ...[
             const SizedBox(height: 16),
             Icon(
@@ -446,7 +518,6 @@ class _WebRTCCallScreenState extends State<WebRTCCallScreen>
   Widget _buildVideoView() {
     return Stack(
       children: [
-        // Remote video (full screen)
         Center(
           child: _webrtcService.remoteVideoRenderer != null
               ? RTCVideoView(
@@ -457,8 +528,6 @@ class _WebRTCCallScreenState extends State<WebRTCCallScreen>
                   child: CircularProgressIndicator(color: Colors.white),
                 ),
         ),
-
-        // Local video (picture-in-picture)
         if (_webrtcService.localVideoRenderer != null)
           Positioned(
             top: 16,
@@ -477,8 +546,6 @@ class _WebRTCCallScreenState extends State<WebRTCCallScreen>
               ),
             ),
           ),
-
-        // Call duration overlay
         if (_callState == CallState.connected)
           Positioned(
             top: 16,
@@ -508,17 +575,19 @@ class _WebRTCCallScreenState extends State<WebRTCCallScreen>
   }
 
   Widget _buildBottomControls() {
+    if (_callState == CallState.ended && _errorMessage != null) {
+      return const SizedBox.shrink();
+    }
+
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 24),
-      decoration: BoxDecoration(
+      decoration: const BoxDecoration(
         color: Colors.black87,
-        borderRadius:
-            const BorderRadius.vertical(top: Radius.circular(24)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Accept/Reject buttons for incoming calls
           if (widget.isIncoming && _callState == CallState.ringing) ...[
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
@@ -539,7 +608,6 @@ class _WebRTCCallScreenState extends State<WebRTCCallScreen>
               ],
             ),
           ] else ...[
-            // Active call controls
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
@@ -554,10 +622,8 @@ class _WebRTCCallScreenState extends State<WebRTCCallScreen>
                 ),
                 if (widget.isVideo)
                   _buildControlButton(
-                    icon:
-                        _isVideoOff ? Icons.videocam_off : Icons.videocam,
-                    label:
-                        _isVideoOff ? 'Camera On' : 'Camera Off',
+                    icon: _isVideoOff ? Icons.videocam_off : Icons.videocam,
+                    label: _isVideoOff ? 'Camera On' : 'Camera Off',
                     active: !_isVideoOff,
                     onTap: () async {
                       await _webrtcService.toggleVideo();
@@ -568,21 +634,17 @@ class _WebRTCCallScreenState extends State<WebRTCCallScreen>
                   ),
                 _buildControlButton(
                   icon: Icons.volume_up,
-                  label:
-                      _isSpeakerOn ? 'Speaker' : 'Earpiece',
+                  label: _isSpeakerOn ? 'Speaker' : 'Earpiece',
                   active: _isSpeakerOn,
                   onTap: () {
                     if (mounted) {
-                      setState(
-                          () => _isSpeakerOn = !_isSpeakerOn);
+                      setState(() => _isSpeakerOn = !_isSpeakerOn);
                     }
                   },
                 ),
               ],
             ),
             const SizedBox(height: 24),
-
-            // End call button
             _buildCallButton(
               icon: Icons.call_end,
               label: 'End Call',
@@ -612,8 +674,7 @@ class _WebRTCCallScreenState extends State<WebRTCCallScreen>
             height: 56,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color:
-                  active ? Colors.white.withAlpha(20) : Colors.grey[800],
+              color: active ? Colors.white.withAlpha(20) : Colors.grey[800],
             ),
             child: Icon(
               icon,

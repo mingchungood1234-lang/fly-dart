@@ -7,6 +7,7 @@ const pool = require('./db/connection');
 const { Server } = require('socket.io');
 
 const authRoutes = require('./routes/auth');
+const { verifyToken } = require('./utils/jwt');
 
 const app = express();
 const server = http.createServer(app);
@@ -73,10 +74,130 @@ app.get('/', (req, res) => {
   res.redirect('/web');
 });
 
+// ========== Device Push Token Management ==========
+
+// Auth middleware for protected endpoints
+function authMiddleware(req, res, next) {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ message: 'No token provided' });
+  }
+  try {
+    const token = authHeader.split(' ')[1];
+    const decoded = verifyToken(token);
+    req.userId = decoded.id;
+    next();
+  } catch (error) {
+    return res.status(401).json({ message: 'Invalid token' });
+  }
+}
+
+// Register a device push token
+app.post('/api/devices/register', authMiddleware, async (req, res) => {
+  try {
+    const { deviceToken, platform } = req.body;
+    if (!deviceToken) {
+      return res.status(400).json({ message: 'deviceToken is required' });
+    }
+
+    // Use the authenticated user's ID, not a client-provided userId
+    const userId = req.userId;
+
+    // Upsert: insert or update on duplicate token
+    await pool.query(
+      `INSERT INTO device_tokens (user_id, device_token, platform, updated_at)
+       VALUES (?, ?, ?, NOW())
+       ON DUPLICATE KEY UPDATE updated_at = NOW(), user_id = VALUES(user_id), platform = VALUES(platform)`,
+      [userId, deviceToken, platform || 'unknown']
+    );
+
+    console.log(`Device token registered for user ${userId} (${platform})`);
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Device register error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Remove a device push token (on logout)
+app.post('/api/devices/remove', authMiddleware, async (req, res) => {
+  try {
+    const { deviceToken } = req.body;
+    if (!deviceToken) {
+      return res.status(400).json({ message: 'deviceToken is required' });
+    }
+
+    // Only allow removing your own tokens
+    await pool.query('DELETE FROM device_tokens WHERE device_token = ? AND user_id = ?', [deviceToken, req.userId]);
+    console.log(`Device token removed for user ${req.userId}`);
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Device remove error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
 // ========== WebRTC Signaling ==========
 
 // Track connected users: userId -> { socketId, platform }
 const connectedUsers = new Map();
+
+// OneSignal push notification helper
+async function sendPushNotification(targetUserId, payload) {
+  const oneSignalAppId = process.env.ONESIGNAL_APP_ID;
+  const oneSignalApiKey = process.env.ONESIGNAL_REST_API_KEY;
+
+  if (!oneSignalAppId || !oneSignalApiKey) {
+    console.log('Push notifications not configured (missing OneSignal credentials)');
+    return;
+  }
+
+  try {
+    // Get all device tokens for the target user
+    const [tokens] = await pool.query(
+      'SELECT device_token FROM device_tokens WHERE user_id = ?',
+      [targetUserId]
+    );
+
+    if (tokens.length === 0) {
+      console.log(`No device tokens found for user ${targetUserId}`);
+      return;
+    }
+
+    const deviceIds = tokens.map(t => t.device_token);
+
+    const message = {
+      app_id: oneSignalAppId,
+      include_player_ids: deviceIds,
+      contents: { en: payload.body },
+      headings: { en: payload.title },
+      data: payload.data || {},
+      // High priority for call notifications
+      priority: 10,
+      // iOS specific
+      ios_badgeType: 'Increase',
+      ios_badgeCount: 1,
+    };
+
+    const response = await fetch('https://onesignal.com/api/v1/notifications', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Basic ${oneSignalApiKey}`,
+      },
+      body: JSON.stringify(message),
+    });
+
+    const result = await response.json();
+    if (result.id) {
+      console.log(`Push notification sent to user ${targetUserId}: ${result.id}`);
+    } else {
+      console.log('Push notification response:', result);
+    }
+  } catch (error) {
+    console.error('Push notification error:', error.message);
+  }
+}
 
 io.on('connection', (socket) => {
   console.log('User connected:', socket.id);
@@ -98,7 +219,7 @@ io.on('connection', (socket) => {
   });
 
   // Initiate a call
-  socket.on('call_user', (data) => {
+  socket.on('call_user', async (data) => {
     const { callerId, callerName, targetId, callType } = data;
     const target = connectedUsers.get(targetId);
 
@@ -110,8 +231,22 @@ io.on('connection', (socket) => {
       });
       console.log(`Call from ${callerId} to ${targetId} (${target.platform})`);
     } else {
-      socket.emit('call_rejected', {
-        reason: 'User is offline',
+      // User is not connected via socket — send push notification to wake them up
+      console.log(`User ${targetId} not online, sending push notification`);
+      // Send push in background, don't block the caller
+      sendPushNotification(targetId, {
+        title: callerName || 'Unknown Caller',
+        body: callType === 'video' ? 'Incoming video call' : 'Incoming voice call',
+        data: {
+          type: 'incoming_call',
+          callerId,
+          callerName: callerName || 'Unknown',
+          callType: callType || 'audio',
+        },
+      }).catch(() => {}); // Don't let push errors crash the handler
+      // Notify caller that target is offline, but don't reject the call entirely
+      socket.emit('call_offline', {
+        reason: 'User is offline. Push notification sent.',
       });
     }
   });
@@ -204,6 +339,22 @@ async function start() {
     `);
     console.log('Users table ready');
 
+    // Device tokens table for push notifications
+    await conn.query(`
+      CREATE TABLE IF NOT EXISTS device_tokens (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        user_id INT NOT NULL,
+        device_token VARCHAR(500) NOT NULL,
+        platform VARCHAR(20) DEFAULT 'unknown',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        UNIQUE KEY unique_token (device_token),
+        INDEX idx_user_id (user_id),
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+      )
+    `);
+    console.log('Device tokens table ready');
+
     conn.release();
 
     server.listen(PORT, () => {
@@ -211,6 +362,7 @@ async function start() {
       console.log(`Web client: http://localhost:${PORT}/web`);
       console.log(`API: http://localhost:${PORT}/api`);
       console.log('Signaling server ready');
+      console.log('Push notifications:', process.env.ONESIGNAL_APP_ID ? 'Configured' : 'Not configured (set ONESIGNAL_APP_ID and ONESIGNAL_REST_API_KEY in .env)');
     });
   } catch (err) {
     console.error('MySQL connection error:', err.message);
