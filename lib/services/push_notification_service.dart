@@ -5,8 +5,14 @@ import 'package:onesignal_flutter/onesignal_flutter.dart';
 import 'api_service.dart';
 import 'auth_service.dart';
 
-/// Singleton service for managing push notifications via OneSignal.
-/// Handles initialization, device token registration, and notification actions.
+/// Centralized OneSignal SDK wrapper.
+/// All OneSignal interactions MUST go through this class.
+/// Responsibilities:
+///   - Initialize the SDK
+///   - Manage push subscription
+///   - Handle notification display and taps
+///   - Register/unregister device tokens with the server
+///   - Login/logout external user IDs
 class PushNotificationService {
   static final PushNotificationService _instance =
       PushNotificationService._internal();
@@ -80,6 +86,62 @@ class PushNotificationService {
     }
   }
 
+  /// Login external user identity with OneSignal.
+  /// Call this after user authenticates.
+  void login(String externalId) {
+    if (!_initialized) return;
+    OneSignal.login(externalId);
+  }
+
+  /// Logout external user identity from OneSignal.
+  /// Call this on logout.
+  void logout() {
+    if (!_initialized) return;
+    OneSignal.logout();
+  }
+
+  /// Add a user tag.
+  Future<void> setTag(String key, String value) async {
+    if (!_initialized) return;
+    await OneSignal.User.addTagWithKey(key, value);
+  }
+
+  /// Remove a user tag.
+  Future<void> removeTag(String key) async {
+    if (!_initialized) return;
+    await OneSignal.User.removeTag(key);
+  }
+
+  /// Add email subscription.
+  Future<void> setEmail(String email) async {
+    if (!_initialized) return;
+    await OneSignal.User.addEmail(email);
+  }
+
+  /// Remove email subscription.
+  Future<void> removeEmail(String email) async {
+    if (!_initialized) return;
+    await OneSignal.User.removeEmail(email);
+  }
+
+  /// Add SMS subscription.
+  Future<void> setSmsNumber(String number) async {
+    if (!_initialized) return;
+    await OneSignal.User.addSms(number);
+  }
+
+  /// Remove SMS subscription.
+  Future<void> removeSmsNumber(String number) async {
+    if (!_initialized) return;
+    await OneSignal.User.removeSms(number);
+  }
+
+  /// Trigger an in-app message with a key-value pair.
+  Future<void> addTrigger(String key, String value) async {
+    if (!_initialized) return;
+    await OneSignal.InAppMessages.addTrigger(key, value);
+  }
+
   /// Register the current device token with the server.
   /// Call this after login and after token refresh.
   Future<void> _registerTokenWithServer() async {
@@ -107,6 +169,13 @@ class PushNotificationService {
   /// Register device token with server. Called after login.
   Future<void> registerAfterLogin() async {
     await initialize();
+    await _registerTokenWithServer();
+  }
+
+  /// Convenience method: initialize, login external ID, and register token.
+  Future<void> registerAfterLoginWithUser(String userId) async {
+    await initialize();
+    login(userId);
     await _registerTokenWithServer();
   }
 

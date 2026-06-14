@@ -1,3 +1,7 @@
 # Flutter generated iOS paths
 ios/Flutter/Generated.xcconfig
 ios/Flutter/flutter_export_environment.sh
+
+# Server secrets
+server/keys/*.p8
+server/keys/*.p12

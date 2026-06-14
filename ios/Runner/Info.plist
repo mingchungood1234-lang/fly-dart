@@ -65,6 +65,7 @@
 		<string>fetch</string>
 		<string>processing</string>
 		<string>voip</string>
+		<string>remote-notification</string>
 	</array>
 	<key>NSVoIPUsageDescription</key>
 	<string>PhoneCall uses VoIP to receive incoming calls in the background.</string>

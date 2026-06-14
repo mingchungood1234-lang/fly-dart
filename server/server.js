@@ -233,7 +233,8 @@ io.on('connection', (socket) => {
     } else {
       // User is not connected via socket — send push notification to wake them up
       console.log(`User ${targetId} not online, sending push notification`);
-      // Send push in background, don't block the caller
+      
+      // Send push notification to wake them up
       sendPushNotification(targetId, {
         title: callerName || 'Unknown Caller',
         body: callType === 'video' ? 'Incoming video call' : 'Incoming voice call',
