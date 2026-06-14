@@ -146,6 +146,36 @@
       "languageVersion": "3.10"
     },
     {
+      "name": "flutter_background_service",
+      "rootUri": "file:///home/ferno/.pub-cache/hosted/pub.dev/flutter_background_service-5.1.0",
+      "packageUri": "lib/",
+      "languageVersion": "2.17"
+    },
+    {
+      "name": "flutter_background_service_android",
+      "rootUri": "file:///home/ferno/.pub-cache/hosted/pub.dev/flutter_background_service_android-6.3.1",
+      "packageUri": "lib/",
+      "languageVersion": "2.17"
+    },
+    {
+      "name": "flutter_background_service_ios",
+      "rootUri": "file:///home/ferno/.pub-cache/hosted/pub.dev/flutter_background_service_ios-5.0.3",
+      "packageUri": "lib/",
+      "languageVersion": "2.17"
+    },
+    {
+      "name": "flutter_background_service_platform_interface",
+      "rootUri": "file:///home/ferno/.pub-cache/hosted/pub.dev/flutter_background_service_platform_interface-5.1.2",
+      "packageUri": "lib/",
+      "languageVersion": "2.17"
+    },
+    {
+      "name": "flutter_callkit_incoming",
+      "rootUri": "file:///home/ferno/.pub-cache/hosted/pub.dev/flutter_callkit_incoming-3.1.1",
+      "packageUri": "lib/",
+      "languageVersion": "3.0"
+    },
+    {
       "name": "flutter_dotenv",
       "rootUri": "file:///home/ferno/.pub-cache/hosted/pub.dev/flutter_dotenv-5.2.1",
       "packageUri": "lib/",
@@ -210,6 +240,12 @@
       "rootUri": "file:///home/ferno/.pub-cache/hosted/pub.dev/js-0.7.2",
       "packageUri": "lib/",
       "languageVersion": "3.7"
+    },
+    {
+      "name": "json_annotation",
+      "rootUri": "file:///home/ferno/.pub-cache/hosted/pub.dev/json_annotation-4.12.0",
+      "packageUri": "lib/",
+      "languageVersion": "3.9"
     },
     {
       "name": "leak_tracker",

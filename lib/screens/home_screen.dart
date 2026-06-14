@@ -8,6 +8,8 @@ import '../services/contact_service.dart';
 import '../services/signaling_service.dart';
 import '../services/incoming_call_handler.dart';
 import '../services/push_notification_service.dart';
+import '../services/background_service.dart';
+import '../services/callkit_service.dart';
 import 'call_screen.dart';
 import 'add_contact_screen.dart';
 import 'webrtc_call_screen.dart';
@@ -24,6 +26,8 @@ class _HomeScreenState extends State<HomeScreen> {
   final SignalingService _signaling = SignalingService();
   final IncomingCallHandler _callHandler = IncomingCallHandler();
   final PushNotificationService _pushService = PushNotificationService();
+  final BackgroundServiceManager _bgService = BackgroundServiceManager();
+  final CallKitService _callKit = CallKitService();
   StreamSubscription? _pushCallSubscription;
 
   final List<Widget> _screens = [
@@ -44,11 +48,19 @@ class _HomeScreenState extends State<HomeScreen> {
     final user = await AuthService.getUser();
     if (user == null || !mounted) return;
 
+    // Initialize CallKit event listener (for background/killed app call UI)
+    _callKit.initialize();
+    _callKit.onCallAccepted = _onCallKitAccepted;
+    _callKit.onCallDeclined = _onCallKitDeclined;
+
     // Connect to signaling server (stays alive for the entire session)
     _signaling.connect(user.id);
 
-    // Start listening for incoming calls globally
+    // Start listening for incoming calls globally (foreground UI)
     _callHandler.startListening(context);
+
+    // Start the Android foreground service to keep the process alive
+    _bgService.startService(user.id);
 
     // Initialize push notifications and register device token
     _pushService.registerAfterLogin();
@@ -64,6 +76,36 @@ class _HomeScreenState extends State<HomeScreen> {
         if (mounted) _onPushNotificationCall(pending);
       });
     }
+  }
+
+  /// Handle CallKit accept event (user answered via native CallKit UI)
+  void _onCallKitAccepted(Map<String, dynamic> data) async {
+    final callerId = data['callerId']?.toString();
+    if (callerId == null) return;
+    final callerName = data['callerName']?.toString() ?? 'Unknown';
+    final callType = data['callType']?.toString() ?? 'audio';
+    // Load current user ID for acceptCall
+    final user = await AuthService.getUser();
+    if (user == null || !mounted) return;
+    _signaling.acceptCall(callerId: callerId, targetId: user.id);
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => WebRTCCallScreen(
+          targetUserId: callerId,
+          targetUserName: callerName,
+          isVideo: callType == 'video',
+          isIncoming: true,
+          callerId: callerId,
+          callerName: callerName,
+        ),
+      ),
+    );
+  }
+
+  /// Handle CallKit decline event (user declined via native CallKit UI)
+  void _onCallKitDeclined() {
+    debugPrint('CallKit: Call declined by user');
   }
 
   /// Handle incoming call from a notification tap (app was killed/backgrounded)
@@ -98,6 +140,12 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _logout() async {
     // Stop listening for incoming calls
     _callHandler.stopListening();
+
+    // Stop the Android foreground service
+    _bgService.stopService();
+
+    // Clean up CallKit
+    _callKit.dispose();
 
     // Unregister push token and disconnect
     await _pushService.unregisterToken();
@@ -699,7 +747,10 @@ class _ProfileScreenState extends State<_ProfileScreen> {
               child: OutlinedButton.icon(
                 onPressed: () async {
                   IncomingCallHandler().stopListening();
+                  BackgroundServiceManager().stopService();
+                  CallKitService().dispose();
                   SignalingService().disconnect();
+                  PushNotificationService().unregisterToken();
                   await AuthService.clearAuth();
                   if (!mounted) return;
                   Navigator.pushReplacementNamed(context, '/login');

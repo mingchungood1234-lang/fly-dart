@@ -20,6 +20,8 @@ dependencies:
   onesignal_flutter: ^5.6.0
   audioplayers: ^6.7.1
   vibration: ^3.2.0
+  flutter_background_service: ^5.1.0
+  flutter_callkit_incoming: ^3.1.1
 
 
 dev_dependencies:
