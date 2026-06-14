@@ -8,6 +8,7 @@ class WebRTCService {
   MediaStream? _remoteStream;
   bool _isCleanedUp = false;
 
+  // Stream controllers
   final StreamController<MediaStream?> _remoteStreamController =
       StreamController<MediaStream?>.broadcast();
   final StreamController<RTCVideoRenderer?> _remoteRendererController =
@@ -16,11 +17,14 @@ class WebRTCService {
       StreamController<RTCVideoRenderer?>.broadcast();
   final StreamController<bool> _callConnectedController =
       StreamController<bool>.broadcast();
+  final StreamController<RTCIceCandidate> _iceCandidateController =
+      StreamController<RTCIceCandidate>.broadcast();
 
   Stream<MediaStream?> get remoteStream => _remoteStreamController.stream;
   Stream<RTCVideoRenderer?> get remoteRenderer => _remoteRendererController.stream;
   Stream<RTCVideoRenderer?> get localRenderer => _localRendererController.stream;
   Stream<bool> get callConnected => _callConnectedController.stream;
+  Stream<RTCIceCandidate> get onIceCandidate => _iceCandidateController.stream;
 
   RTCVideoRenderer? _remoteRenderer;
   RTCVideoRenderer? _localRenderer;
@@ -28,12 +32,28 @@ class WebRTCService {
   RTCVideoRenderer? get remoteVideoRenderer => _remoteRenderer;
   RTCVideoRenderer? get localVideoRenderer => _localRenderer;
 
-  /// ICE servers configuration (Google STUN servers for NAT traversal)
+  // Buffer for ICE candidates that arrive before remote description is set
+  final List<RTCIceCandidate> _pendingCandidates = [];
+  bool _remoteDescriptionSet = false;
+
+  /// ICE servers configuration with STUN servers and free TURN relay
   static final Map<String, dynamic> _iceServers = {
     'iceServers': [
-      {'url': 'stun:stun.l.google.com:19302'},
-      {'url': 'stun:stun1.l.google.com:19302'},
-      {'url': 'stun:stun2.l.google.com:19302'},
+      {'urls': 'stun:stun.l.google.com:19302'},
+      {'urls': 'stun:stun1.l.google.com:19302'},
+      {'urls': 'stun:stun2.l.google.com:19302'},
+      {'urls': 'stun:stun3.l.google.com:19302'},
+      {'urls': 'stun:stun4.l.google.com:19302'},
+      {
+        'urls': 'turn:openrelay.metered.ca:443',
+        'username': 'openrelayproject',
+        'credential': 'openrelayproject',
+      },
+      {
+        'urls': 'turn:openrelay.metered.ca:80',
+        'username': 'openrelayproject',
+        'credential': 'openrelayproject',
+      },
     ],
   };
 
@@ -68,6 +88,9 @@ class WebRTCService {
 
   /// Create a peer connection
   Future<RTCPeerConnection> createPeerConnection() async {
+    _remoteDescriptionSet = false;
+    _pendingCandidates.clear();
+
     _peerConnection = await createPeerConnection_(_iceServers);
 
     // Add local stream tracks to peer connection
@@ -84,17 +107,23 @@ class WebRTCService {
         _remoteStreamController.add(_remoteStream);
 
         // Create and initialize remote renderer
-        _remoteRenderer = RTCVideoRenderer();
-        _remoteRenderer!.initialize().then((_) {
+        if (_remoteRenderer == null) {
+          _remoteRenderer = RTCVideoRenderer();
+          _remoteRenderer!.initialize().then((_) {
+            _remoteRenderer!.srcObject = _remoteStream;
+            _remoteRendererController.add(_remoteRenderer);
+          });
+        } else {
           _remoteRenderer!.srcObject = _remoteStream;
           _remoteRendererController.add(_remoteRenderer);
-        });
+        }
       }
     };
 
-    // Handle ICE candidates
+    // Handle ICE candidates - forward them via stream
     _peerConnection!.onIceCandidate = (RTCIceCandidate candidate) {
-      debugPrint('ICE candidate: ${candidate.candidate}');
+      debugPrint('ICE candidate generated: ${candidate.candidate?.substring(0, 50)}...');
+      _iceCandidateController.add(candidate);
     };
 
     // Handle connection state changes
@@ -109,12 +138,19 @@ class WebRTCService {
       debugPrint('ICE connection state: $state');
     };
 
+    _peerConnection!.onIceGatheringState = (RTCIceGatheringState state) {
+      debugPrint('ICE gathering state: $state');
+    };
+
     return _peerConnection!;
   }
 
   /// Create an SDP offer
   Future<RTCSessionDescription> createOffer() async {
-    final offer = await _peerConnection!.createOffer();
+    final offer = await _peerConnection!.createOffer({
+      'offerToReceiveAudio': true,
+      'offerToReceiveVideo': true,
+    });
     await _peerConnection!.setLocalDescription(offer);
     return offer;
   }
@@ -126,14 +162,37 @@ class WebRTCService {
     return answer;
   }
 
-  /// Set remote description (offer or answer)
+  /// Set remote description (offer or answer) and flush pending ICE candidates
   Future<void> setRemoteDescription(RTCSessionDescription desc) async {
     await _peerConnection!.setRemoteDescription(desc);
+    _remoteDescriptionSet = true;
+    debugPrint('Remote description set, flushing ${_pendingCandidates.length} pending ICE candidates');
+
+    // Flush any ICE candidates that arrived before remote description
+    for (final candidate in _pendingCandidates) {
+      try {
+        await _peerConnection!.addCandidate(candidate);
+        debugPrint('Flushed pending ICE candidate');
+      } catch (e) {
+        debugPrint('Error flushing ICE candidate: $e');
+      }
+    }
+    _pendingCandidates.clear();
   }
 
-  /// Add a remote ICE candidate
+  /// Add a remote ICE candidate (buffers if remote description not set yet)
   Future<void> addIceCandidate(RTCIceCandidate candidate) async {
-    await _peerConnection!.addCandidate(candidate);
+    if (_remoteDescriptionSet) {
+      try {
+        await _peerConnection!.addCandidate(candidate);
+        debugPrint('ICE candidate added');
+      } catch (e) {
+        debugPrint('Error adding ICE candidate: $e');
+      }
+    } else {
+      debugPrint('Buffering ICE candidate (remote description not set yet)');
+      _pendingCandidates.add(candidate);
+    }
   }
 
   /// Toggle audio mute
@@ -204,6 +263,9 @@ class WebRTCService {
     await _peerConnection?.close();
     _peerConnection = null;
     _remoteStream = null;
+
+    _remoteDescriptionSet = false;
+    _pendingCandidates.clear();
   }
 
   void dispose() {
@@ -212,6 +274,7 @@ class WebRTCService {
     _localRendererController.close();
     _remoteRendererController.close();
     _callConnectedController.close();
+    _iceCandidateController.close();
   }
 }
 

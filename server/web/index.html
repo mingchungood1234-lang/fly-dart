@@ -19,37 +19,79 @@
     .form-group input { width: 100%; padding: 12px 16px; background: #16213e; border: 1px solid #2a2a4a; border-radius: 10px; color: #fff; font-size: 15px; outline: none; transition: border-color 0.2s; }
     .form-group input:focus { border-color: #6c5ce7; }
     .btn { width: 100%; padding: 14px; border: none; border-radius: 12px; font-size: 16px; font-weight: 600; cursor: pointer; transition: all 0.2s; }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
     .btn-primary { background: linear-gradient(135deg, #6c5ce7, #a29bfe); color: #fff; }
-    .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 4px 16px rgba(108,92,231,0.4); }
+    .btn-primary:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 4px 16px rgba(108,92,231,0.4); }
     .btn-secondary { background: transparent; color: #6c5ce7; border: 1px solid #6c5ce7; margin-top: 12px; }
     .btn-secondary:hover { background: rgba(108,92,231,0.1); }
+    .btn-green { background: #00b894; color: #fff; }
+    .btn-green:hover:not(:disabled) { background: #00a381; }
+    .btn-red { background: #ff6b6b; color: #fff; }
+    .btn-red:hover { background: #ee5a5a; }
     .switch-link { text-align: center; margin-top: 16px; color: #888; font-size: 14px; }
     .switch-link a { color: #6c5ce7; cursor: pointer; text-decoration: none; }
     .error-msg { color: #ff6b6b; font-size: 13px; text-align: center; margin-top: 12px; display: none; }
+    .success-msg { color: #00b894; font-size: 13px; text-align: center; margin-top: 12px; display: none; }
+    .loading-spinner { display: inline-block; width: 20px; height: 20px; border: 2px solid rgba(255,255,255,0.3); border-radius: 50%; border-top-color: #fff; animation: spin 0.8s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
 
     /* Main app */
-    .app-container { display: none; max-width: 480px; margin: 0 auto; padding: 20px; }
+    .app-container { display: none; max-width: 520px; margin: 0 auto; padding: 20px; }
     .app-header { display: flex; align-items: center; justify-content: space-between; padding: 12px 0; margin-bottom: 16px; border-bottom: 1px solid #2a2a4a; }
     .app-header h2 { font-size: 20px; }
     .user-info { font-size: 12px; color: #888; text-align: right; }
     .user-info .vn { color: #6c5ce7; font-weight: 600; font-size: 14px; }
+    .user-info .name { font-size: 13px; color: #ccc; margin-top: 2px; }
 
-    /* Contacts list */
+    /* My number card */
+    .my-number-card { background: linear-gradient(135deg, #1a1a2e, #16213e); border: 1px solid #2a2a4a; border-radius: 16px; padding: 20px; margin-bottom: 20px; text-align: center; }
+    .my-number-card .label { font-size: 12px; color: #888; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }
+    .my-number-card .number { font-size: 28px; font-weight: 700; color: #6c5ce7; letter-spacing: 2px; }
+    .my-number-card .hint { font-size: 12px; color: #666; margin-top: 8px; }
+
+    /* Call by number */
+    .call-by-number { background: #1a1a2e; border: 1px solid #2a2a4a; border-radius: 12px; padding: 16px; margin-bottom: 20px; }
+    .call-by-number h3 { font-size: 14px; color: #aaa; margin-bottom: 12px; }
+    .call-by-number-row { display: flex; gap: 10px; }
+    .call-by-number-row input { flex: 1; padding: 12px 16px; background: #16213e; border: 1px solid #2a2a4a; border-radius: 10px; color: #fff; font-size: 15px; outline: none; font-family: monospace; letter-spacing: 1px; }
+    .call-by-number-row input:focus { border-color: #6c5ce7; }
+    .call-by-number-row input::placeholder { color: #555; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; letter-spacing: 0; }
+    .call-by-number-row button { padding: 12px 20px; border: none; border-radius: 10px; font-weight: 600; cursor: pointer; white-space: nowrap; }
+    .call-by-number-row .btn-audio { background: #00b894; color: #fff; }
+    .call-by-number-row .btn-audio:hover { background: #00a381; }
+    .call-by-number-row .btn-video { background: #0984e3; color: #fff; }
+    .call-by-number-row .btn-video:hover { background: #0873c7; }
+
+    /* Section headers */
+    .section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+    .section-header h3 { font-size: 14px; color: #888; text-transform: uppercase; letter-spacing: 0.5px; }
+    .section-header .count { font-size: 12px; color: #555; }
+
+    /* Search bar */
     .search-bar { width: 100%; padding: 12px 16px; background: #1a1a2e; border: 1px solid #2a2a4a; border-radius: 12px; color: #fff; font-size: 14px; outline: none; margin-bottom: 16px; }
     .search-bar:focus { border-color: #6c5ce7; }
-    .contact-list { max-height: calc(100vh - 280px); overflow-y: auto; }
+
+    /* Contacts list */
+    .contact-list { max-height: calc(100vh - 420px); overflow-y: auto; min-height: 120px; }
     .contact-item { display: flex; align-items: center; padding: 14px 16px; background: #1a1a2e; border-radius: 12px; margin-bottom: 8px; cursor: pointer; transition: background 0.2s; }
     .contact-item:hover { background: #16213e; }
     .contact-avatar { width: 44px; height: 44px; border-radius: 50%; background: linear-gradient(135deg, #6c5ce7, #a29bfe); display: flex; align-items: center; justify-content: center; font-size: 18px; font-weight: bold; margin-right: 14px; flex-shrink: 0; }
-    .contact-details { flex: 1; }
-    .contact-name { font-weight: 600; font-size: 15px; }
-    .contact-vn { font-size: 12px; color: #6c5ce7; margin-top: 2px; }
-    .contact-actions { display: flex; gap: 8px; }
+    .contact-details { flex: 1; min-width: 0; }
+    .contact-name { font-weight: 600; font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .contact-vn { font-size: 12px; color: #6c5ce7; margin-top: 2px; font-family: monospace; }
+    .contact-email { font-size: 11px; color: #666; margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .contact-actions { display: flex; gap: 8px; flex-shrink: 0; }
     .call-btn { width: 40px; height: 40px; border-radius: 50%; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 18px; transition: all 0.2s; }
     .call-btn-audio { background: #00b894; color: #fff; }
-    .call-btn-audio:hover { background: #00a381; }
+    .call-btn-audio:hover { background: #00a381; transform: scale(1.1); }
     .call-btn-video { background: #0984e3; color: #fff; }
-    .call-btn-video:hover { background: #0873c7; }
+    .call-btn-video:hover { background: #0873c7; transform: scale(1.1); }
+
+    /* Empty state */
+    .empty-state { text-align: center; padding: 40px 20px; color: #666; }
+    .empty-state .icon { font-size: 48px; margin-bottom: 16px; }
+    .empty-state h3 { color: #888; font-size: 16px; margin-bottom: 8px; }
+    .empty-state p { font-size: 13px; line-height: 1.5; }
 
     /* Call screen */
     .call-screen { display: none; position: fixed; inset: 0; background: #0f0f0f; z-index: 100; flex-direction: column; align-items: center; justify-content: center; }
@@ -58,8 +100,10 @@
     @keyframes pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.05); } }
     .call-name { font-size: 28px; font-weight: bold; margin-bottom: 8px; }
     .call-status { color: #888; font-size: 16px; margin-bottom: 32px; }
-    .call-controls { display: flex; gap: 24px; }
+    .call-duration { color: #6c5ce7; font-size: 20px; font-weight: 500; margin-bottom: 32px; display: none; font-variant-numeric: tabular-nums; }
+    .call-controls { display: flex; gap: 24px; align-items: center; }
     .ctrl-btn { width: 64px; height: 64px; border-radius: 50%; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 24px; transition: all 0.2s; }
+    .ctrl-btn:hover { transform: scale(1.05); }
     .ctrl-btn.mute { background: #2a2a4a; color: #fff; }
     .ctrl-btn.mute.active { background: #6c5ce7; }
     .ctrl-btn.end { background: #ff6b6b; color: #fff; width: 72px; height: 72px; font-size: 28px; }
@@ -68,11 +112,19 @@
     .ctrl-btn.decline { background: #ff6b6b; color: #fff; }
     .video-container { position: fixed; inset: 0; z-index: 99; }
     .video-container video { width: 100%; height: 100%; object-fit: cover; }
-    .pip-video { position: fixed; top: 20px; right: 20px; width: 160px; height: 120px; border-radius: 12px; overflow: hidden; border: 2px solid #fff; z-index: 101; }
-    .pip-video video { width: 100%; height: 100%; object-fit: cover; }
 
     /* Online indicator */
     .online-dot { width: 10px; height: 10px; background: #00b894; border-radius: 50%; display: inline-block; margin-left: 6px; }
+
+    /* Status bar */
+    .status-bar { display: flex; align-items: center; gap: 8px; padding: 8px 0; margin-bottom: 16px; font-size: 12px; color: #666; }
+    .status-dot { width: 8px; height: 8px; border-radius: 50%; }
+    .status-dot.connected { background: #00b894; }
+    .status-dot.disconnected { background: #ff6b6b; }
+
+    /* Bottom actions */
+    .bottom-actions { display: flex; gap: 12px; margin-top: 16px; padding-top: 16px; border-top: 1px solid #2a2a4a; }
+    .bottom-actions button { flex: 1; }
 
     /* Scrollbar */
     ::-webkit-scrollbar { width: 6px; }
@@ -96,7 +148,7 @@
         <label>Password</label>
         <input type="password" id="loginPassword" placeholder="••••••••">
       </div>
-      <button class="btn btn-primary" onclick="login()">Sign In</button>
+      <button class="btn btn-primary" id="loginBtn" onclick="login()">Sign In</button>
       <div class="switch-link">Don't have an account? <a onclick="showRegister()">Sign Up</a></div>
       <div id="loginError" class="error-msg"></div>
     </div>
@@ -120,9 +172,10 @@
         <label>Password</label>
         <input type="password" id="regPassword" placeholder="Min 6 characters">
       </div>
-      <button class="btn btn-primary" onclick="register()">Create Account</button>
+      <button class="btn btn-primary" id="regBtn" onclick="register()">Create Account</button>
       <div class="switch-link">Already have an account? <a onclick="showLogin()">Sign In</a></div>
       <div id="regError" class="error-msg"></div>
+      <div id="regSuccess" class="success-msg"></div>
     </div>
   </div>
 
@@ -131,13 +184,52 @@
     <div class="app-header">
       <h2>📞 PhoneCall</h2>
       <div class="user-info">
+        <div class="name" id="myName"></div>
         <div class="vn" id="myVirtualNumber"></div>
-        <div id="myName"></div>
       </div>
     </div>
-    <input type="text" class="search-bar" id="searchInput" placeholder="Search by name, email, or virtual number..." oninput="searchUsers()">
-    <div class="contact-list" id="contactList"></div>
-    <button class="btn btn-secondary" style="margin-top:16px" onclick="logout()">Logout</button>
+
+    <!-- My Number Card -->
+    <div class="my-number-card" id="myNumberCard">
+      <div class="label">Your Virtual Number</div>
+      <div class="number" id="myBigNumber"></div>
+      <div class="hint">Share this number so others can call you</div>
+    </div>
+
+    <!-- Call by Number -->
+    <div class="call-by-number">
+      <h3>📱 Call by Virtual Number</h3>
+      <div class="call-by-number-row">
+        <input type="text" id="callNumberInput" placeholder="Enter +1-555-XXXX">
+        <button class="btn-audio" onclick="callByNumber('audio')">📞</button>
+        <button class="btn-video" onclick="callByNumber('video')">📹</button>
+      </div>
+    </div>
+
+    <!-- Connection Status -->
+    <div class="status-bar">
+      <div class="status-dot" id="statusDot"></div>
+      <span id="statusText">Connecting...</span>
+    </div>
+
+    <!-- Contacts Section -->
+    <div class="section-header">
+      <h3>Contacts</h3>
+      <span class="count" id="contactCount"></span>
+    </div>
+    <input type="text" class="search-bar" id="searchInput" placeholder="Search by name, email, or number..." oninput="searchUsers()">
+    <div class="contact-list" id="contactList">
+      <div class="empty-state" id="loadingState">
+        <div class="loading-spinner" style="width:32px;height:32px;border-width:3px;margin:0 auto 16px"></div>
+        <p>Loading contacts...</p>
+      </div>
+    </div>
+
+    <!-- Bottom Actions -->
+    <div class="bottom-actions">
+      <button class="btn btn-secondary" onclick="loadUsers()" style="flex:0 0 auto;padding:12px 20px">🔄 Refresh</button>
+      <button class="btn btn-red" onclick="logout()" style="flex:1">Logout</button>
+    </div>
   </div>
 
   <!-- Call Screen -->
@@ -145,9 +237,8 @@
     <div id="callAvatar" class="call-avatar">?</div>
     <div id="callName" class="call-name"></div>
     <div id="callStatus" class="call-status"></div>
-    <div class="call-controls" id="callControls">
-      <!-- Populated dynamically -->
-    </div>
+    <div id="callDuration" class="call-duration"></div>
+    <div class="call-controls" id="callControls"></div>
   </div>
 
   <script src="/socket.io/socket.io.js"></script>
@@ -165,6 +256,9 @@
     let remoteStream = null;
     let currentCall = null;
     let allUsers = [];
+    let onlineUsers = new Set();
+    let callTimer = null;
+    let callSeconds = 0;
 
     // ========== Auth ==========
     function showLogin() {
@@ -176,11 +270,32 @@
       document.getElementById('registerScreen').style.display = '';
     }
 
+    function setLoading(btnId, loading) {
+      const btn = document.getElementById(btnId);
+      if (!btn) return;
+      if (loading) {
+        btn.disabled = true;
+        btn.dataset.originalText = btn.textContent;
+        btn.innerHTML = '<span class="loading-spinner"></span>';
+      } else {
+        btn.disabled = false;
+        btn.textContent = btn.dataset.originalText || btn.textContent;
+      }
+    }
+
     async function login() {
       const email = document.getElementById('loginEmail').value.trim();
       const password = document.getElementById('loginPassword').value;
       const errEl = document.getElementById('loginError');
       errEl.style.display = 'none';
+
+      if (!email || !password) {
+        errEl.textContent = 'Please enter email and password';
+        errEl.style.display = 'block';
+        return;
+      }
+
+      setLoading('loginBtn', true);
 
       try {
         const res = await fetch(`${API_BASE}/auth/login`, {
@@ -189,13 +304,20 @@
           body: JSON.stringify({ email, password }),
         });
         const data = await res.json();
-        if (!res.ok) { errEl.textContent = data.message; errEl.style.display = ''; return; }
+        if (!res.ok) {
+          errEl.textContent = data.message || 'Login failed';
+          errEl.style.display = 'block';
+          setLoading('loginBtn', false);
+          return;
+        }
         authToken = data.token;
         currentUser = data.user;
         startApp();
       } catch (e) {
-        errEl.textContent = 'Network error'; errEl.style.display = '';
+        errEl.textContent = 'Network error — is the server running?';
+        errEl.style.display = 'block';
       }
+      setLoading('loginBtn', false);
     }
 
     async function register() {
@@ -203,7 +325,22 @@
       const email = document.getElementById('regEmail').value.trim();
       const password = document.getElementById('regPassword').value;
       const errEl = document.getElementById('regError');
+      const sucEl = document.getElementById('regSuccess');
       errEl.style.display = 'none';
+      sucEl.style.display = 'none';
+
+      if (!name || !email || !password) {
+        errEl.textContent = 'All fields are required';
+        errEl.style.display = 'block';
+        return;
+      }
+      if (password.length < 6) {
+        errEl.textContent = 'Password must be at least 6 characters';
+        errEl.style.display = 'block';
+        return;
+      }
+
+      setLoading('regBtn', true);
 
       try {
         const res = await fetch(`${API_BASE}/auth/register`, {
@@ -212,13 +349,20 @@
           body: JSON.stringify({ name, email, password }),
         });
         const data = await res.json();
-        if (!res.ok) { errEl.textContent = data.message; errEl.style.display = ''; return; }
+        if (!res.ok) {
+          errEl.textContent = data.message || 'Registration failed';
+          errEl.style.display = 'block';
+          setLoading('regBtn', false);
+          return;
+        }
         authToken = data.token;
         currentUser = data.user;
         startApp();
       } catch (e) {
-        errEl.textContent = 'Network error'; errEl.style.display = '';
+        errEl.textContent = 'Network error — is the server running?';
+        errEl.style.display = 'block';
       }
+      setLoading('regBtn', false);
     }
 
     function logout() {
@@ -229,16 +373,21 @@
       if (socket) socket.disconnect();
       document.getElementById('mainApp').style.display = 'none';
       document.getElementById('loginScreen').style.display = '';
+      // Clear form fields
+      document.getElementById('loginEmail').value = '';
+      document.getElementById('loginPassword').value = '';
     }
 
     // ========== App Init ==========
     function startApp() {
       document.getElementById('loginScreen').style.display = 'none';
       document.getElementById('registerScreen').style.display = 'none';
-      document.getElementById('mainApp').style.display = '';
+      document.getElementById('mainApp').style.display = 'block';
 
       document.getElementById('myName').textContent = currentUser.name;
-      document.getElementById('myVirtualNumber').textContent = currentUser.virtual_number || 'No number';
+      const vn = currentUser.virtual_number || 'No number assigned';
+      document.getElementById('myVirtualNumber').textContent = vn;
+      document.getElementById('myBigNumber').textContent = vn;
 
       localStorage.setItem('authToken', authToken);
       localStorage.setItem('currentUser', JSON.stringify(currentUser));
@@ -249,10 +398,23 @@
 
     // ========== Socket.IO ==========
     function connectSocket() {
-      socket = io(WS_URL);
+      if (socket) socket.disconnect();
+      socket = io(WS_URL, { transports: ['websocket', 'polling'] });
 
       socket.on('connect', () => {
+        document.getElementById('statusDot').className = 'status-dot connected';
+        document.getElementById('statusText').textContent = 'Connected';
         socket.emit('register', { userId: String(currentUser.id), platform: 'web' });
+      });
+
+      socket.on('disconnect', () => {
+        document.getElementById('statusDot').className = 'status-dot disconnected';
+        document.getElementById('statusText').textContent = 'Disconnected — reconnecting...';
+      });
+
+      socket.on('online_users', (userIds) => {
+        onlineUsers = new Set(userIds.map(String));
+        updateOnlineStatus();
       });
 
       socket.on('incoming_call', (data) => {
@@ -260,7 +422,7 @@
         showIncomingCall(data);
       });
 
-      socket.on('call_accepted', (data) => {
+      socket.on('call_accepted', () => {
         document.getElementById('callStatus').textContent = 'Connecting...';
         createOffer();
       });
@@ -274,31 +436,53 @@
       });
 
       socket.on('signal', async (data) => {
+        if (!peerConnection) return;
         const { signal } = data;
-        if (signal.type === 'offer') {
-          await peerConnection.setRemoteDescription(new RTCSessionDescription(signal));
-          const answer = await peerConnection.createAnswer();
-          await peerConnection.setLocalDescription(answer);
-          socket.emit('signal', { to: data.from, signal: { type: 'answer', sdp: answer.sdp } });
-        } else if (signal.type === 'answer') {
-          await peerConnection.setRemoteDescription(new RTCSessionDescription(signal));
-        } else if (signal.type === 'candidate' && signal.candidate) {
-          await peerConnection.addIceCandidate(new RTCIceCandidate(signal));
+        try {
+          if (signal.type === 'offer') {
+            await peerConnection.setRemoteDescription(new RTCSessionDescription(signal));
+            const answer = await peerConnection.createAnswer();
+            await peerConnection.setLocalDescription(answer);
+            socket.emit('signal', { to: data.from, signal: { type: 'answer', sdp: answer.sdp } });
+          } else if (signal.type === 'answer') {
+            await peerConnection.setRemoteDescription(new RTCSessionDescription(signal));
+          } else if (signal.type === 'candidate' && signal.candidate) {
+            await peerConnection.addIceCandidate(new RTCIceCandidate(signal));
+          }
+        } catch (e) {
+          console.error('Signal handling error:', e);
         }
+      });
+    }
+
+    function updateOnlineStatus() {
+      allUsers.forEach(u => {
+        const dot = document.getElementById('online-' + u.id);
+        if (dot) dot.style.display = onlineUsers.has(String(u.id)) ? 'inline-block' : 'none';
       });
     }
 
     // ========== Users ==========
     async function loadUsers() {
+      const list = document.getElementById('contactList');
+      list.innerHTML = '<div class="empty-state"><div class="loading-spinner" style="width:32px;height:32px;border-width:3px;margin:0 auto 16px"></div><p>Loading contacts...</p></div>';
+
       try {
         const res = await fetch(`${API_BASE}/users`, {
           headers: { 'Authorization': `Bearer ${authToken}` },
         });
+        if (!res.ok) {
+          list.innerHTML = '<div class="empty-state"><div class="icon">⚠️</div><h3>Failed to load contacts</h3><p>Server returned an error. Try refreshing.</p></div>';
+          return;
+        }
         const data = await res.json();
-        allUsers = (data.users || []).filter(u => u.id !== currentUser.id);
+        allUsers = (data.users || []).filter(u => String(u.id) !== String(currentUser.id));
+        document.getElementById('contactCount').textContent = allUsers.length + ' contacts';
         renderContacts(allUsers);
+        updateOnlineStatus();
       } catch (e) {
         console.error('Failed to load users:', e);
+        list.innerHTML = '<div class="empty-state"><div class="icon">⚠️</div><h3>Could not connect to server</h3><p>Make sure the server is running and try again.</p></div>';
       }
     }
 
@@ -315,19 +499,72 @@
 
     function renderContacts(users) {
       const list = document.getElementById('contactList');
+
+      if (users.length === 0) {
+        list.innerHTML = allUsers.length === 0
+          ? '<div class="empty-state"><div class="icon">👥</div><h3>No other users yet</h3><p>Register another account or have a friend sign up. Then use the virtual number field above to call them directly.</p></div>'
+          : '<div class="empty-state"><div class="icon">🔍</div><h3>No matches</h3><p>Try a different search term.</p></div>';
+        return;
+      }
+
       list.innerHTML = users.map(u => `
         <div class="contact-item">
           <div class="contact-avatar">${u.name[0].toUpperCase()}</div>
           <div class="contact-details">
-            <div class="contact-name">${u.name} <span class="online-dot" id="online-${u.id}" style="display:none"></span></div>
+            <div class="contact-name">${escapeHtml(u.name)} <span class="online-dot" id="online-${u.id}" style="display:none"></span></div>
             <div class="contact-vn">${u.virtual_number || 'No number'}</div>
+            <div class="contact-email">${escapeHtml(u.email)}</div>
           </div>
           <div class="contact-actions">
-            <button class="call-btn call-btn-audio" onclick="startCall(${u.id}, '${u.name.replace(/'/g, "\\'")}', 'audio')" title="Audio Call">📞</button>
-            <button class="call-btn call-btn-video" onclick="startCall(${u.id}, '${u.name.replace(/'/g, "\\'")}', 'video')" title="Video Call">📹</button>
+            <button class="call-btn call-btn-audio" onclick="startCall(${u.id}, '${escapeJs(u.name)}', 'audio')" title="Audio Call">📞</button>
+            <button class="call-btn call-btn-video" onclick="startCall(${u.id}, '${escapeJs(u.name)}', 'video')" title="Video Call">📹</button>
           </div>
         </div>
       `).join('');
+    }
+
+    function escapeHtml(str) {
+      const div = document.createElement('div');
+      div.textContent = str;
+      return div.innerHTML;
+    }
+
+    function escapeJs(str) {
+      return str.replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '\\"');
+    }
+
+    // ========== Call by Number ==========
+    async function callByNumber(callType) {
+      const input = document.getElementById('callNumberInput');
+      const number = input.value.trim();
+      if (!number) {
+        input.focus();
+        input.style.borderColor = '#ff6b6b';
+        setTimeout(() => input.style.borderColor = '#2a2a4a', 2000);
+        return;
+      }
+
+      try {
+        const res = await fetch(`${API_BASE}/users/search?q=${encodeURIComponent(number)}`, {
+          headers: { 'Authorization': `Bearer ${authToken}` },
+        });
+        const data = await res.json();
+        const users = data.users || [];
+        const match = users.find(u => u.virtual_number === number);
+
+        if (match) {
+          startCall(match.id, match.name, callType);
+        } else {
+          const errEl = document.createElement('div');
+          errEl.className = 'error-msg';
+          errEl.style.display = 'block';
+          errEl.textContent = 'No user found with this number';
+          input.parentElement.parentElement.appendChild(errEl);
+          setTimeout(() => errEl.remove(), 3000);
+        }
+      } catch (e) {
+        console.error('Lookup failed:', e);
+      }
     }
 
     // ========== Call Logic ==========
@@ -338,7 +575,6 @@
 
     async function startCall(targetId, targetName, callType) {
       currentCall = { callerId: String(currentUser.id), callerName: currentUser.name, targetId: String(targetId), callType };
-
       showCallScreen(targetName, 'Calling...', callType);
       await initMedia(callType === 'video');
       createPeerConnection_();
@@ -352,7 +588,6 @@
     }
 
     function showIncomingCall(data) {
-      // Store callerId as targetId so endCall knows who to signal
       currentCall = { ...currentCall, callerId: data.callerId, callerName: data.callerName, callType: data.callType, targetId: data.callerId };
       showCallScreen(data.callerName, 'Incoming call...', data.callType, true);
     }
@@ -363,6 +598,8 @@
       document.getElementById('callName').textContent = name;
       document.getElementById('callStatus').textContent = status;
       document.getElementById('callAvatar').textContent = name[0]?.toUpperCase() || '?';
+      document.getElementById('callDuration').style.display = 'none';
+      callSeconds = 0;
 
       const controls = document.getElementById('callControls');
       if (isIncoming) {
@@ -376,6 +613,20 @@
           <button class="ctrl-btn end" onclick="endCall()">📞</button>
         `;
       }
+    }
+
+    function startCallTimer() {
+      document.getElementById('callDuration').style.display = 'block';
+      callTimer = setInterval(() => {
+        callSeconds++;
+        const mins = String(Math.floor(callSeconds / 60)).padStart(2, '0');
+        const secs = String(callSeconds % 60).padStart(2, '0');
+        document.getElementById('callDuration').textContent = `${mins}:${secs}`;
+      }, 1000);
+    }
+
+    function stopCallTimer() {
+      if (callTimer) { clearInterval(callTimer); callTimer = null; }
     }
 
     async function acceptCall() {
@@ -407,9 +658,8 @@
 
     function endCallUI(msg) {
       document.getElementById('callStatus').textContent = msg;
-      setTimeout(() => {
-        hangup();
-      }, 1500);
+      stopCallTimer();
+      setTimeout(() => hangup(), 1500);
     }
 
     // ========== WebRTC ==========
@@ -417,7 +667,6 @@
       try {
         localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video });
       } catch (e) {
-        // Fallback to audio only
         localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
       }
     }
@@ -442,6 +691,7 @@
           document.getElementById('remoteVideo').srcObject = remoteStream;
         }
         document.getElementById('callStatus').textContent = 'Connected';
+        startCallTimer();
       };
 
       peerConnection.onicecandidate = (event) => {
@@ -466,6 +716,7 @@
     }
 
     async function createOffer() {
+      if (!peerConnection) return;
       const offer = await peerConnection.createOffer();
       await peerConnection.setLocalDescription(offer);
       const targetId = currentCall.callerId === String(currentUser.id)
@@ -482,17 +733,17 @@
     }
 
     function hangup() {
+      stopCallTimer();
       if (peerConnection) { peerConnection.close(); peerConnection = null; }
       if (localStream) { localStream.getTracks().forEach(t => t.stop()); localStream = null; }
       remoteStream = null;
       currentCall = null;
 
-      // Remove remote video if exists
       const rv = document.getElementById('remoteVideo');
       if (rv) rv.parentElement.remove();
 
       document.getElementById('callScreen').classList.remove('active');
-      document.getElementById('mainApp').style.display = '';
+      document.getElementById('mainApp').style.display = 'block';
       loadUsers();
     }
 
@@ -501,9 +752,14 @@
       const saved = localStorage.getItem('currentUser');
       const token = localStorage.getItem('authToken');
       if (saved && token) {
-        currentUser = JSON.parse(saved);
-        authToken = token;
-        startApp();
+        try {
+          currentUser = JSON.parse(saved);
+          authToken = token;
+          startApp();
+        } catch (e) {
+          localStorage.removeItem('currentUser');
+          localStorage.removeItem('authToken');
+        }
       }
     })();
   </script>

@@ -5,6 +5,7 @@ import '../services/api_service.dart';
 import '../services/call_history_service.dart';
 import 'webrtc_call_screen.dart';
 import 'dialpad_screen.dart';
+import 'add_contact_screen.dart';
 
 class CallScreen extends StatefulWidget {
   const CallScreen({super.key});
@@ -311,7 +312,10 @@ class _CallScreenState extends State<CallScreen> {
             label: 'New Contact',
             color: Colors.teal,
             onTap: () {
-              Navigator.pushNamed(context, '/register');
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const AddContactScreen()),
+              );
             },
           ),
           const SizedBox(width: 12),

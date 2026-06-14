@@ -51,6 +51,7 @@ class _WebRTCCallScreenState extends State<WebRTCCallScreen>
   bool _hasRecordedHistory = false;
   StreamSubscription? _eventSubscription;
   StreamSubscription? _connectedSubscription;
+  StreamSubscription? _iceCandidateSubscription;
 
   // Call duration timer
   Timer? _durationTimer;
@@ -74,12 +75,22 @@ class _WebRTCCallScreenState extends State<WebRTCCallScreen>
     _initCall();
   }
 
+  /// Get the remote peer's userId (who to send signals to)
+  String get _remoteUserId {
+    if (widget.isIncoming) {
+      return widget.callerId ?? '';
+    }
+    return widget.targetUserId;
+  }
+
   Future<void> _initCall() async {
     final user = await AuthService.getUser();
     _currentUserId = user?.id ?? '';
 
     // Initialize local stream
     await _webrtcService.initLocalStream(video: widget.isVideo);
+
+    // Create peer connection
     await _webrtcService.createPeerConnection();
 
     // Connect to signaling
@@ -94,6 +105,20 @@ class _WebRTCCallScreenState extends State<WebRTCCallScreen>
         setState(() => _callState = CallState.connected);
         _startDurationTimer();
       }
+    });
+
+    // Listen for ICE candidates from WebRTC and forward them via signaling
+    _iceCandidateSubscription = _webrtcService.onIceCandidate.listen((candidate) {
+      debugPrint('Forwarding ICE candidate to $_remoteUserId');
+      _signalingService.sendSignal(
+        targetId: _remoteUserId,
+        signal: {
+          'type': 'candidate',
+          'candidate': candidate.candidate,
+          'sdpMid': candidate.sdpMid,
+          'sdpMLineIndex': candidate.sdpMLineIndex,
+        },
+      );
     });
 
     if (widget.isIncoming) {
@@ -140,32 +165,39 @@ class _WebRTCCallScreenState extends State<WebRTCCallScreen>
 
   void _handleSignal(Map<String, dynamic> data) async {
     final signal = data['signal'];
+    final signalType = signal['type'];
 
-    if (signal['type'] == 'offer') {
+    debugPrint('Received signal: $signalType from ${data['from']}');
+
+    if (signalType == 'offer') {
+      debugPrint('Processing SDP offer');
       final offer = RTCSessionDescription(
         signal['sdp'],
         signal['type'],
       );
       await _webrtcService.setRemoteDescription(offer);
+      debugPrint('Creating and sending SDP answer');
       final answer = await _webrtcService.createAnswer();
       _signalingService.sendSignal(
-        targetId: widget.isIncoming
-            ? (widget.callerId ?? '')
-            : widget.targetUserId,
+        targetId: _remoteUserId,
         signal: {'type': 'answer', 'sdp': answer.sdp},
       );
-    } else if (signal['type'] == 'answer') {
+      debugPrint('SDP answer sent');
+    } else if (signalType == 'answer') {
+      debugPrint('Processing SDP answer');
       final answer = RTCSessionDescription(
         signal['sdp'],
         signal['type'],
       );
       await _webrtcService.setRemoteDescription(answer);
-    } else if (signal['type'] == 'candidate') {
+      debugPrint('SDP answer applied');
+    } else if (signalType == 'candidate') {
       final candidate = RTCIceCandidate(
         signal['candidate'],
         signal['sdpMid'],
         signal['sdpMLineIndex'],
       );
+      debugPrint('Processing ICE candidate');
       await _webrtcService.addIceCandidate(candidate);
     }
   }
@@ -174,11 +206,13 @@ class _WebRTCCallScreenState extends State<WebRTCCallScreen>
     setState(() => _callState = CallState.connecting);
 
     // Create and send offer
+    debugPrint('Call accepted, creating SDP offer');
     final offer = await _webrtcService.createOffer();
     _signalingService.sendSignal(
-      targetId: widget.targetUserId,
+      targetId: _remoteUserId,
       signal: {'type': 'offer', 'sdp': offer.sdp},
     );
+    debugPrint('SDP offer sent');
   }
 
   void _onCallRejected() {
@@ -245,9 +279,7 @@ class _WebRTCCallScreenState extends State<WebRTCCallScreen>
     }
     _signalingService.endCall(
       callerId: _currentUserId!,
-      targetId: widget.isIncoming
-          ? (widget.callerId ?? '')
-          : widget.targetUserId,
+      targetId: _remoteUserId,
     );
     _safeCleanup();
     if (mounted) Navigator.pop(context);
@@ -281,6 +313,7 @@ class _WebRTCCallScreenState extends State<WebRTCCallScreen>
     _durationTimer?.cancel();
     _eventSubscription?.cancel();
     _connectedSubscription?.cancel();
+    _iceCandidateSubscription?.cancel();
     _webrtcService.hangup();
     _signalingService.disconnect();
   }
@@ -415,10 +448,14 @@ class _WebRTCCallScreenState extends State<WebRTCCallScreen>
       children: [
         // Remote video (full screen)
         Center(
-          child: RTCVideoView(
-            _webrtcService.remoteVideoRenderer!,
-            objectFit: RTCVideoViewObjectFit.RTCVideoViewObjectFitCover,
-          ),
+          child: _webrtcService.remoteVideoRenderer != null
+              ? RTCVideoView(
+                  _webrtcService.remoteVideoRenderer!,
+                  objectFit: RTCVideoViewObjectFit.RTCVideoViewObjectFitCover,
+                )
+              : const Center(
+                  child: CircularProgressIndicator(color: Colors.white),
+                ),
         ),
 
         // Local video (picture-in-picture)
