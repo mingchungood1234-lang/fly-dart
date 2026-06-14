@@ -9,6 +9,7 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+
   cupertino_icons: ^1.0.8
   flutter_dotenv: ^5.1.0
   http: ^1.2.1
@@ -20,12 +21,21 @@ dependencies:
   audioplayers: ^6.7.1
   vibration: ^3.2.0
 
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
+
   flutter_lints: ^6.0.0
+
+
+# ADD THIS
+dependency_overrides:
+  device_info_plus: 12.2.0
+
 
 flutter:
   uses-material-design: true
+
   assets:
     - .env
