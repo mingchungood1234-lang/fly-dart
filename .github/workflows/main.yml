@@ -4,54 +4,38 @@ on:
   workflow_dispatch:
 
 jobs:
-  build:
+  build-ios:
     runs-on: macos-latest
-
 
     steps:
 
     - name: Checkout
-      uses: actions/checkout@v5
-
+      uses: actions/checkout@v4
 
     - name: Setup Flutter
       uses: subosito/flutter-action@v2
       with:
         channel: stable
 
-
-    - name: Flutter Doctor
-      run: flutter doctor -v
-
-
-    - name: Create iOS folder if missing
-      run: flutter create --platforms=ios .
-
+    - name: Flutter version
+      run: flutter --version
 
     - name: Install dependencies
       run: flutter pub get
 
-
-    - name: Install Pods
+    - name: Build iOS no codesign
       run: |
-        cd ios
-        pod install
-        cd ..
+        flutter build ios --release --no-codesign
 
-
-    - name: Build iOS app
-      run: flutter build ios --release --no-codesign
-
-
-    - name: Make IPA
+    - name: Create IPA
       run: |
+        cd build/ios/iphoneos
         mkdir Payload
-        cp -r build/ios/iphoneos/Runner.app Payload/
-        zip -r app.ipa Payload
-
+        cp -r Runner.app Payload/
+        zip -qq -r unsigned.ipa Payload
 
     - name: Upload IPA
       uses: actions/upload-artifact@v4
       with:
-        name: AltStore-IPA
-        path: app.ipa
+        name: iOS-IPA
+        path: build/ios/iphoneos/unsigned.ipa
