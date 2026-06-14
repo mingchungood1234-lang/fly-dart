@@ -1,50 +1,90 @@
-name: Build iOS IPA
+name: Build Flutter iOS IPA
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - main
 
 jobs:
-  ios:
-    runs-on: macos-latest
+  build-ios:
+    runs-on: macos-15
 
     steps:
-    - uses: actions/checkout@v4
+    # Get source code
+    - name: Checkout repository
+      uses: actions/checkout@v4
 
+    # Install Flutter
     - name: Setup Flutter
       uses: subosito/flutter-action@v2
       with:
         channel: stable
 
-    - name: Dependencies
+    - name: Flutter version
+      run: flutter --version
+
+
+    # IMPORTANT:
+    # remove your Linux flutter paths:
+    # /home/ferno/Downloads/flutter-sdk/flutter
+    - name: Remove old Flutter generated files
       run: |
+        rm -f ios/Flutter/Generated.xcconfig
+        rm -f ios/Flutter/flutter_export_environment.sh
+
+
+    # Install packages
+    - name: Install Flutter dependencies
+      run: |
+        flutter clean
         flutter pub get
+
+
+    # Create .env for flutter_dotenv
+    - name: Create Flutter env
+      run: |
+        if [ -z "${{ secrets.ENV_FILE }}" ]; then
+          touch .env
+        else
+          echo "${{ secrets.ENV_FILE }}" > .env
+        fi
+
+
+    # Install CocoaPods
+    - name: Install iOS Pods
+      run: |
         cd ios
         pod install
         cd ..
 
-    - name: Build Flutter
-      run: |
-        flutter build ios --release --no-codesign --config-only
 
-    - name: Xcode build unsigned
+    # Disable signing
+    - name: Disable iOS signing
       run: |
-        xcodebuild \
-        -workspace ios/Runner.xcworkspace \
-        -scheme Runner \
-        -configuration Release \
-        -sdk iphoneos \
-        CODE_SIGN_IDENTITY="" \
-        CODE_SIGNING_REQUIRED=NO \
-        CODE_SIGNING_ALLOWED=NO
+        sed -i '' 's/CODE_SIGN_STYLE = Automatic;/CODE_SIGN_STYLE = Manual;/g' ios/Runner.xcodeproj/project.pbxproj
+        sed -i '' '/DEVELOPMENT_TEAM/d' ios/Runner.xcodeproj/project.pbxproj
 
-    - name: Make IPA
+
+    # Build iOS app
+    - name: Build iOS unsigned
       run: |
-        mkdir Payload
+        flutter build ios \
+        --release \
+        --no-codesign
+
+
+    # Create IPA
+    - name: Package IPA
+      run: |
+        mkdir -p Payload
         cp -r build/ios/iphoneos/Runner.app Payload/
         zip -r FlutterApp.ipa Payload
 
+
+    # Upload
     - name: Upload IPA
       uses: actions/upload-artifact@v4
       with:
-        name: FlutterApp
+        name: Flutter-iOS-IPA
         path: FlutterApp.ipa
