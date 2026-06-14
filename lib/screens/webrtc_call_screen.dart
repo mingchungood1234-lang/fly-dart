@@ -4,6 +4,7 @@ import 'package:flutter_webrtc/flutter_webrtc.dart';
 import '../services/signaling_service.dart';
 import '../services/webrtc_service.dart';
 import '../services/auth_service.dart';
+import '../services/call_history_service.dart';
 
 enum CallState {
   idle,
@@ -47,6 +48,7 @@ class _WebRTCCallScreenState extends State<WebRTCCallScreen>
   bool _isSpeakerOn = true;
   String? _currentUserId;
   bool _isCleanedUp = false;
+  bool _hasRecordedHistory = false;
   StreamSubscription? _eventSubscription;
   StreamSubscription? _connectedSubscription;
 
@@ -180,6 +182,9 @@ class _WebRTCCallScreenState extends State<WebRTCCallScreen>
   }
 
   void _onCallRejected() {
+    if (!_hasRecordedHistory) {
+      _recordCallHistory(direction: CallDirection.outgoing, missed: true);
+    }
     _safeCleanup();
     if (mounted) {
       Navigator.pop(context);
@@ -193,6 +198,10 @@ class _WebRTCCallScreenState extends State<WebRTCCallScreen>
   }
 
   void _onCallEnded() {
+    if (!_hasRecordedHistory) {
+      final dir = widget.isIncoming ? CallDirection.incoming : CallDirection.outgoing;
+      _recordCallHistory(direction: dir);
+    }
     _safeCleanup();
     if (mounted) Navigator.pop(context);
   }
@@ -218,6 +227,9 @@ class _WebRTCCallScreenState extends State<WebRTCCallScreen>
   }
 
   void _rejectCall() {
+    if (!_hasRecordedHistory) {
+      _recordCallHistory(direction: CallDirection.missed);
+    }
     _signalingService.rejectCall(
       callerId: widget.callerId ?? widget.targetUserId,
       targetId: _currentUserId!,
@@ -227,6 +239,10 @@ class _WebRTCCallScreenState extends State<WebRTCCallScreen>
   }
 
   void _endCall() {
+    if (!_hasRecordedHistory) {
+      final dir = widget.isIncoming ? CallDirection.incoming : CallDirection.outgoing;
+      _recordCallHistory(direction: dir);
+    }
     _signalingService.endCall(
       callerId: _currentUserId!,
       targetId: widget.isIncoming
@@ -235,6 +251,28 @@ class _WebRTCCallScreenState extends State<WebRTCCallScreen>
     );
     _safeCleanup();
     if (mounted) Navigator.pop(context);
+  }
+
+  void _recordCallHistory({
+    required CallDirection direction,
+    bool missed = false,
+  }) {
+    final displayName = widget.isIncoming
+        ? (widget.callerName ?? 'Unknown')
+        : widget.targetUserName;
+    final contactId = widget.isIncoming
+        ? (widget.callerId ?? '')
+        : widget.targetUserId;
+
+    _hasRecordedHistory = true;
+    CallHistoryService.addRecord(CallRecord(
+      contactId: contactId,
+      contactName: displayName,
+      direction: missed ? CallDirection.missed : direction,
+      callType: widget.isVideo ? CallType.video : CallType.audio,
+      timestamp: DateTime.now(),
+      durationSeconds: _callDuration,
+    ));
   }
 
   void _safeCleanup() {
