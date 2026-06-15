@@ -1,12 +1,16 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
+import 'package:flutter/services.dart';
 
 class WebRTCService {
   RTCPeerConnection? _peerConnection;
   MediaStream? _localStream;
   MediaStream? _remoteStream;
+  MediaStream? _screenStream;
   bool _isCleanedUp = false;
+  bool _isScreenSharing = false;
+  static const MethodChannel _channel = MethodChannel('com.example.flutterapiuitest/screen_share');
 
   // Stream controllers
   final StreamController<MediaStream?> _remoteStreamController =
@@ -25,6 +29,7 @@ class WebRTCService {
   Stream<RTCVideoRenderer?> get localRenderer => _localRendererController.stream;
   Stream<bool> get callConnected => _callConnectedController.stream;
   Stream<RTCIceCandidate> get onIceCandidate => _iceCandidateController.stream;
+  bool get isScreenSharing => _isScreenSharing;
 
   RTCVideoRenderer? _remoteRenderer;
   RTCVideoRenderer? _localRenderer;
@@ -221,6 +226,88 @@ class WebRTCService {
     }
   }
 
+  /// Start screen sharing
+  Future<MediaStream?> startScreenSharing() async {
+    try {
+      if (_peerConnection == null) {
+        throw Exception('Peer connection not initialized');
+      }
+
+      // On Android, start foreground service before getDisplayMedia
+      try {
+        await _channel.invokeMethod('startForegroundService', {
+          'resultCode': 0,
+          'data': '',
+        });
+      } catch (e) {
+        debugPrint('Note: Foreground service start skipped: $e');
+      }
+
+      // Request screen capture using getDisplayMedia
+      final screenStream = await navigator.mediaDevices.getDisplayMedia({
+        'video': {
+          'width': {'ideal': 1920},
+          'height': {'ideal': 1080},
+          'frameRate': {'ideal': 30},
+        },
+        'audio': false,
+      });
+
+      _screenStream = screenStream;
+      _isScreenSharing = true;
+
+      // Get the screen video track
+      final screenTrack = screenStream.getVideoTracks().first;
+
+      // Add screen track to peer connection
+      await _peerConnection!.addTrack(screenTrack, screenStream);
+
+      // Handle the screen track ending (user clicks stop sharing)
+      screenTrack.onEnded = () {
+        debugPrint('Screen sharing ended by user');
+        stopScreenSharing();
+      };
+
+      debugPrint('Screen sharing started successfully');
+      return screenStream;
+    } catch (e) {
+      debugPrint('Error starting screen sharing: $e');
+      _isScreenSharing = false;
+      return null;
+    }
+  }
+
+  /// Stop screen sharing
+  Future<void> stopScreenSharing() async {
+    try {
+      if (_screenStream != null) {
+        // Stop all tracks in the screen stream
+        for (var track in _screenStream!.getTracks()) {
+          await track.stop();
+        }
+
+        // Remove screen track from peer connection by finding the sender
+        final senders = await _peerConnection?.getSenders();
+        if (senders != null) {
+          for (var sender in senders) {
+            if (sender.track != null && sender.track!.kind == 'video' &&
+                _screenStream!.getTracks().contains(sender.track)) {
+              await _peerConnection?.removeTrack(sender);
+              break;
+            }
+          }
+        }
+
+        _screenStream = null;
+        _isScreenSharing = false;
+        debugPrint('Screen sharing stopped');
+      }
+    } catch (e) {
+      debugPrint('Error stopping screen sharing: $e');
+      _isScreenSharing = false;
+    }
+  }
+
   /// Get current mute state
   bool get isMuted {
     if (_localStream == null) return false;
@@ -237,12 +324,27 @@ class WebRTCService {
     return !videoTracks.first.enabled;
   }
 
+  /// Check if screen sharing is supported on this platform
+  Future<bool> isScreenSharingSupported() async {
+    try {
+      return await _channel.invokeMethod('isScreenSharingSupported');
+    } catch (e) {
+      // Fallback: assume getDisplayMedia is available
+      return true;
+    }
+  }
+
   /// Clean up resources
   Future<void> hangup() async {
     if (_isCleanedUp) return;
     _isCleanedUp = true;
 
     _callConnectedController.add(false);
+
+    // Stop screen sharing if active
+    if (_isScreenSharing) {
+      await stopScreenSharing();
+    }
 
     // Stop local stream tracks
     _localStream?.getTracks().forEach((track) => track.stop());

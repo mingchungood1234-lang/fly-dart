@@ -1,7 +1,7 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
 const User = require('../models/User');
-const { generateToken, verifyToken } = require('../utils/jwt');
+const { generateToken, verifyToken, verifyTokenForRefresh } = require('../utils/jwt');
 
 const router = express.Router();
 
@@ -81,6 +81,56 @@ router.post('/login', async (req, res) => {
     });
   } catch (error) {
     console.error('Login error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// POST /api/auth/refresh - Refresh JWT token (allows slightly expired tokens)
+router.post('/refresh', async (req, res) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ message: 'No token provided' });
+    }
+
+    const token = authHeader.split(' ')[1];
+    
+    // Use verifyTokenForRefresh to allow expired tokens
+    const decoded = verifyTokenForRefresh(token);
+    
+    if (!decoded) {
+      return res.status(401).json({ message: 'Invalid token' });
+    }
+
+    // Check if token is too old (more than 30 days)
+    const tokenAge = Date.now() / 1000 - decoded.iat;
+    const MAX_TOKEN_AGE = 30 * 24 * 60 * 60; // 30 days in seconds
+    if (tokenAge > MAX_TOKEN_AGE) {
+      return res.status(401).json({ message: 'Token too old, please login again' });
+    }
+
+    const user = await User.findById(decoded.id);
+
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    // Generate new token
+    const newToken = generateToken(user.id);
+
+    res.status(200).json({
+      message: 'Token refreshed',
+      token: newToken,
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        phone: user.phone,
+        virtual_number: user.virtual_number,
+      },
+    });
+  } catch (error) {
+    console.error('Refresh token error:', error);
     res.status(500).json({ message: 'Server error' });
   }
 });

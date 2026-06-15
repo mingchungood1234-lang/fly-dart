@@ -47,6 +47,7 @@ class _WebRTCCallScreenState extends State<WebRTCCallScreen>
   bool _isMuted = false;
   bool _isVideoOff = false;
   bool _isSpeakerOn = true;
+  bool _isScreenSharing = false;
   String? _currentUserId;
   bool _isCleanedUp = false;
   bool _hasRecordedHistory = false;
@@ -351,6 +352,39 @@ class _WebRTCCallScreenState extends State<WebRTCCallScreen>
     if (mounted) Navigator.pop(context);
   }
 
+  Future<void> _toggleScreenSharing() async {
+    try {
+      if (_isScreenSharing) {
+        await _webrtcService.stopScreenSharing();
+        if (mounted) {
+          setState(() => _isScreenSharing = false);
+        }
+      } else {
+        final screenStream = await _webrtcService.startScreenSharing();
+        if (screenStream != null && mounted) {
+          setState(() => _isScreenSharing = true);
+          
+          // Re-negotiate peer connection with new screen track
+          final offer = await _webrtcService.createOffer();
+          _signalingService.sendSignal(
+            targetId: _remoteUserId,
+            signal: {'type': 'offer', 'sdp': offer.sdp},
+          );
+        }
+      }
+    } catch (e) {
+      debugPrint('Error toggling screen sharing: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Screen sharing error: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
   void _recordCallHistory({
     required CallDirection direction,
     bool missed = false,
@@ -632,6 +666,12 @@ class _WebRTCCallScreenState extends State<WebRTCCallScreen>
                       }
                     },
                   ),
+                _buildControlButton(
+                  icon: _isScreenSharing ? Icons.stop_screen_share : Icons.screen_share,
+                  label: _isScreenSharing ? 'Stop Share' : 'Share Screen',
+                  active: _isScreenSharing,
+                  onTap: _toggleScreenSharing,
+                ),
                 _buildControlButton(
                   icon: Icons.volume_up,
                   label: _isSpeakerOn ? 'Speaker' : 'Earpiece',

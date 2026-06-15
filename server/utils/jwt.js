@@ -11,4 +11,19 @@ function verifyToken(token) {
   return jwt.verify(token, JWT_SECRET);
 }
 
-module.exports = { generateToken, verifyToken };
+/**
+ * Verify token allowing expired tokens (for refresh flow).
+ * Returns decoded token if valid (even if expired).
+ * Returns null if token is invalid or too old (more than 30 days).
+ */
+function verifyTokenForRefresh(token) {
+  try {
+    // Allow expired tokens but verify the signature
+    return jwt.verify(token, JWT_SECRET, { ignoreExpiration: true });
+  } catch (error) {
+    // Token is invalid (wrong signature, malformed, etc.)
+    return null;
+  }
+}
+
+module.exports = { generateToken, verifyToken, verifyTokenForRefresh };

@@ -182,6 +182,36 @@ class ApiService {
     }
   }
 
+  /// Refresh JWT token
+  static Future<Map<String, dynamic>> refreshToken(String token) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$_baseUrl/auth/refresh'),
+        headers: _authHeaders(token),
+      );
+
+      final data = jsonDecode(response.body);
+
+      if (response.statusCode == 200) {
+        return {
+          'success': true,
+          'token': data['token'] as String?,
+          'user': data['user'] != null ? User.fromJson(data['user']) : null,
+        };
+      } else {
+        return {
+          'success': false,
+          'message': data['message'] ?? 'Failed to refresh token',
+        };
+      }
+    } catch (e) {
+      return {
+        'success': false,
+        'message': 'Network error: ${e.toString()}',
+      };
+    }
+  }
+
   /// Remove a device push token from the server (on logout)
   static Future<Map<String, dynamic>> removeDeviceToken({
     required String authToken,
