@@ -84,7 +84,7 @@ class _DialpadScreenState extends State<DialpadScreen> {
       if (result['success'] && result['users'] != null) {
         final users = result['users'] as List<User>;
         final match = users.firstWhere(
-          (u) => u.virtualNumber == number,
+          (u) => u.virtualNumber == number || u.virtualNumber == '+$number',
           orElse: () => User(id: '', name: '', email: ''),
         );
 

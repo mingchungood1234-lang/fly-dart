@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
 import '../services/signaling_service.dart';
@@ -666,12 +667,13 @@ class _WebRTCCallScreenState extends State<WebRTCCallScreen>
                       }
                     },
                   ),
-                _buildControlButton(
-                  icon: _isScreenSharing ? Icons.stop_screen_share : Icons.screen_share,
-                  label: _isScreenSharing ? 'Stop Share' : 'Share Screen',
-                  active: _isScreenSharing,
-                  onTap: _toggleScreenSharing,
-                ),
+                if (!kIsWeb)
+                  _buildControlButton(
+                    icon: _isScreenSharing ? Icons.stop_screen_share : Icons.screen_share,
+                    label: _isScreenSharing ? 'Stop Share' : 'Share Screen',
+                    active: _isScreenSharing,
+                    onTap: _toggleScreenSharing,
+                  ),
                 _buildControlButton(
                   icon: Icons.volume_up,
                   label: _isSpeakerOn ? 'Speaker' : 'Earpiece',

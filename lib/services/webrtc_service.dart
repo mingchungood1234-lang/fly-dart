@@ -234,13 +234,15 @@ class WebRTCService {
       }
 
       // On Android, start foreground service before getDisplayMedia
-      try {
-        await _channel.invokeMethod('startForegroundService', {
-          'resultCode': 0,
-          'data': '',
-        });
-      } catch (e) {
-        debugPrint('Note: Foreground service start skipped: $e');
+      if (!kIsWeb) {
+        try {
+          await _channel.invokeMethod('startForegroundService', {
+            'resultCode': 0,
+            'data': '',
+          });
+        } catch (e) {
+          debugPrint('Note: Foreground service start skipped: $e');
+        }
       }
 
       // Request screen capture using getDisplayMedia
@@ -326,6 +328,7 @@ class WebRTCService {
 
   /// Check if screen sharing is supported on this platform
   Future<bool> isScreenSharingSupported() async {
+    if (kIsWeb) return true;
     try {
       return await _channel.invokeMethod('isScreenSharingSupported');
     } catch (e) {
